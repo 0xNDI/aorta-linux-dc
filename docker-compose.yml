@@ -1,0 +1,66 @@
+# AORTA attacker-forest Samba AD DC (bridge networking).
+# Victim-facing ports on 0.0.0.0; SMB/445 on LOOPBACK ONLY so host tools
+# (start-aorta-dc.sh via 127.0.0.1:445) work while krbrelayx owns tun0:445.
+# Details: README.md.
+services:
+  samba-dc:
+    build:
+      context: ./samba
+      dockerfile: Dockerfile
+    image: ghcr.io/0xndi/aorta-linux-dc/samba-dc:bytestorm
+    container_name: aorta-samba-dc
+    hostname: ${DC_FQDN}
+    domainname: ${REALM}
+    cap_add:
+      - SYS_ADMIN
+    restart: unless-stopped
+
+    environment:
+      DOMAIN_ACTION: provision
+      REALM: ${REALM}
+      WORKGROUP: ${WORKGROUP}
+      NETBIOS_NAME: ${NETBIOS_NAME}
+      MODEL: ${MODEL}
+      # Samba binds 0.0.0.0 inside the container (all bridge ifaces).
+      BIND_INTERFACES_ONLY: ${BIND_INTERFACES_ONLY}
+      INTERFACES: "${INTERFACES}"
+      DNS_FORWARDER: ${DNS_FORWARDER}
+      TZ: ${TZ}
+      ADMIN_PASS: ${ADMIN_PASS}
+      DOMAIN_SID: ${DOMAIN_SID:-}
+      MACHINE_PASS: ${MACHINE_PASS:-}
+      # Run the whole container at the victim's clock via libfaketime
+      LD_PRELOAD: /usr/lib/faketime/libfaketime.so.1
+      FAKETIME: ${FAKETIME_OFFSET:-}
+      FAKETIME_MONOTONIC: "1"
+
+    ports:
+      # Published on 0.0.0.0 -> reachable from the victim over tun0,
+      # surviving VPN IP changes without edits.
+      - "53:53/udp"
+      - "53:53/tcp"
+      - "88:88/udp"
+      - "88:88/tcp"
+      - "135:135/tcp"
+      - "389:389/udp"
+      - "389:389/tcp"
+      - "464:464/udp"
+      - "464:464/tcp"
+      # SMB on loopback only: host tools (start-aorta-dc.sh) keep working via
+      # 127.0.0.1, while krbrelayx owns 445 on tun0 for capture.
+      - "127.0.0.1:445:445"
+
+    volumes:
+      # Persisted AD state (provision runs only once, when empty).
+      - samba-etc:/etc/samba
+      - samba-lib:/var/lib/samba
+      # The container must resolve via itself for DC discovery.
+      - ./samba/resolv.conf:/etc/resolv.conf:ro
+      # Custom global drop-in (dnsupdate off, nonsecure updates).
+      - ./samba/conf.d/10-aorta.conf:/etc/samba/conf.d/10-aorta.conf:ro
+      # Patched upstream entrypoint (adds --domain-sid / --machinepass).
+      - ./samba/entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+
+volumes:
+  samba-etc:
+  samba-lib:

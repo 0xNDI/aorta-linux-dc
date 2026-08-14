@@ -1,0 +1,39 @@
+From 428bc209 Mon Sep 17 00:00:00 2001
+Subject: [PATCH] s4:kdc: support entry->flags.ok_as_delegate for trusted domains
+
+Backport of Samba commit 428bc209. Samba 4.23.8 constructs cross-realm
+krbtgt entries without ok_as_delegate, causing Heimdal's TGS path to clear
+that flag from otherwise delegation-capable service tickets. Honour the
+MS-KILE trust attributes, including ENABLE_TGT_DELEGATION (0x800).
+---
+ source4/kdc/db-glue.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/source4/kdc/db-glue.c b/source4/kdc/db-glue.c
+index 90cfe006043..f4527da020a 100644
+--- a/source4/kdc/db-glue.c
++++ b/source4/kdc/db-glue.c
+@@ -2557,6 +2557,21 @@ static krb5_error_code samba_kdc_trust_message2entry(krb5_context context,
+ 	/* Match Windows behavior and allow forwardable flag in cross-realm. */
+ 	entry->flags.forwardable = 1;
+ 
++	/* [MS-KILE] 3.3.5.7.5 Cross-Domain Trust and Referrals */
++	entry->flags.ok_as_delegate = 0;
++	if (tdo->trust_attributes & LSA_TRUST_ATTRIBUTE_WITHIN_FOREST) {
++		entry->flags.ok_as_delegate = 1;
++	}
++	if (tdo->trust_attributes & LSA_TRUST_ATTRIBUTE_CROSS_ORGANIZATION_ENABLE_TGT_DELEGATION) {
++		entry->flags.ok_as_delegate = 1;
++	}
++	if (tdo->trust_attributes & LSA_TRUST_ATTRIBUTE_CROSS_ORGANIZATION_NO_TGT_DELEGATION) {
++		entry->flags.ok_as_delegate = 0;
++	}
++	if (tdo->trust_attributes & LSA_TRUST_ATTRIBUTE_QUARANTINED_DOMAIN) {
++		entry->flags.ok_as_delegate = 0;
++	}
++
+ 	entry->kvno = returned_kvno;
+ 
+ 	/* Generate an entry for each key type. */
+-- 
+2.49.0

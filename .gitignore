@@ -1,0 +1,6 @@
+# Kerberos credential caches
+*.ccache
+*.keytab
+
+# Auto-discovered by start-aorta-dc.sh
+discovered.env
