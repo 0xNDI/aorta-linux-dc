@@ -56,6 +56,14 @@ nxc smb victim.local -u operator -p '<pw>' -M coerce_plus -o LISTENER=dc01.bytes
 ./samba/teardown.sh    # stop + wipe
 ```
 
+The stack uses the prebuilt image
+[`ghcr.io/0xndi/aorta-linux-dc/samba-dc:bytestorm`](https://github.com/0xNDI/aorta-linux-dc/pkgs/container/aorta-linux-dc%2Fsamba-dc)
+(CI-built on every `Dockerfile`/patch change) - `start-aorta-dc.sh` pulls it
+on first run. Only if the pull fails (e.g. offline) does compose fall back to
+building locally, which compiles patched Samba and takes ~20 min. After
+editing `samba/Dockerfile`, force a rebuild with
+`docker compose build` (or `docker compose up -d --build`).
+
 ### Robustness / overrides
 
 Victim enum (anonymous LSARPC + RootDSE), clock skew (skewrun) and the

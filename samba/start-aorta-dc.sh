@@ -226,8 +226,8 @@ recon() {
 }
 
 provision() {
-  echo "[*] Building + starting samba-dc (first build ~20 min; cached after)"
-  docker compose up -d --build
+  echo "[*] Starting samba-dc (pulls the prebuilt GHCR image on first run; falls back to a ~20 min local build only if the pull fails)"
+  docker compose up -d
   echo "[*] Waiting for Samba AD DC to answer samba-tool domain info ..."
   local ready=0
   for _ in $(seq 1 60); do

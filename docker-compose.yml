@@ -8,6 +8,7 @@ services:
       context: ./samba
       dockerfile: Dockerfile
     image: ghcr.io/0xndi/aorta-linux-dc/samba-dc:bytestorm
+    pull_policy: missing
     container_name: aorta-samba-dc
     hostname: ${DC_FQDN}
     domainname: ${REALM}
